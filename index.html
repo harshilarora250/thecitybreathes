@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#07080b" />
+    <meta name="description" content="The City Breathes — a living 3D data sculpture that breathes, sings, and transforms in real time with the pulse of a city." />
+    <meta property="og:title" content="The City Breathes" />
+    <meta property="og:description" content="A living 3D sculpture that breathes with real-time city data." />
+    <meta property="og:type" content="website" />
+    <title>The City Breathes — A living data sculpture</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%238bd6b4' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%2372b8ff'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://esm.sh" crossorigin />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#console">Skip to controls</a>
+
+    <!-- Loading veil -->
+    <div id="veil" class="veil" aria-hidden="true">
+      <div class="veil-core">
+        <div class="veil-orb"></div>
+        <p>Summoning the city's breath…</p>
+      </div>
+    </div>
+
+    <!-- Fixed 3D stage -->
+    <canvas id="scene" aria-label="The City Breathes animated 3D sculpture"></canvas>
+
+    <!-- Navigation -->
+    <header class="nav glass" role="banner">
+      <a class="brand" href="#top" aria-label="The City Breathes home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">The City Breathes</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#concept">Concept</a>
+        <a href="#features">Features</a>
+        <a href="#mapping">How it works</a>
+        <a href="#try">Experience</a>
+      </nav>
+      <a class="nav-cta" href="#try">Enter the sculpture</a>
+    </header>
+
+    <main id="top">
+      <!-- Hero -->
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">Live data sculpture · real-time city pulse</p>
+        <h1 id="hero-title">The City<br />Breathes</h1>
+        <p class="lede">
+          A living 3D sculpture that breathes, sings, and transforms in real time
+          with traffic, air, weather, and the collective hum of a city.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#try">Enter the sculpture</a>
+          <a class="btn btn-ghost" href="#concept">Why it matters</a>
+        </div>
+        <div class="scroll-cue" aria-hidden="true">
+          <span></span> scroll to explore
+        </div>
+      </section>
+
+      <!-- Console / live controls -->
+      <aside id="console" class="console glass" aria-label="Live sculpture controls">
+        <div class="console-head">
+          <div>
+            <p class="eyebrow">Control room</p>
+            <h2>Urban Pulse</h2>
+          </div>
+          <div class="console-head-actions">
+            <button id="focusToggle" class="icon-button" type="button" aria-pressed="false" title="Focus mode — hide everything but the sculpture">
+              <span aria-hidden="true">⤢</span>
+              <span class="sr-only">Toggle focus mode</span>
+            </button>
+            <button id="audioToggle" class="icon-button" type="button" aria-pressed="false" title="Toggle sound">
+              <span id="audioIcon" aria-hidden="true">♪</span>
+              <span class="sr-only">Toggle sound</span>
+            </button>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>City</span>
+          <select id="citySelect">
+            <option value="dubai">Dubai</option>
+            <option value="new-york">New York</option>
+            <option value="london">London</option>
+            <option value="tokyo">Tokyo</option>
+            <option value="delhi">Delhi</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Breathing style</span>
+          <select id="styleSelect">
+            <option value="calm">Calm</option>
+            <option value="pulse">Pulse</option>
+            <option value="wave">Wave</option>
+            <option value="fracture">Fracture</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Audio intensity</span>
+          <input id="audioSlider" type="range" min="0" max="1" step="0.01" value="0.55" aria-label="Audio intensity" />
+        </label>
+
+        <label class="field">
+          <span>Visualization speed</span>
+          <input id="speedSlider" type="range" min="0.4" max="1.8" step="0.01" value="1" aria-label="Visualization speed" />
+        </label>
+
+        <div class="toggles">
+          <label class="check">
+            <input id="timeToggle" type="checkbox" />
+            <span>Past day mode</span>
+          </label>
+          <button id="refreshButton" class="ghost-button" type="button">Refresh</button>
+        </div>
+
+        <div class="metrics" aria-live="polite">
+          <div class="metric"><span>Traffic</span><strong id="trafficMetric">--</strong></div>
+          <div class="metric"><span>Air</span><strong id="airMetric">--</strong></div>
+          <div class="metric"><span>Weather</span><strong id="weatherMetric">--</strong></div>
+          <div class="metric"><span>Social</span><strong id="socialMetric">--</strong></div>
+        </div>
+
+        <div class="status">
+          <span id="freshnessDot" class="dot" aria-hidden="true"></span>
+          <span id="statusText">Preparing city signal</span>
+        </div>
+        <p id="tooltip" class="tooltip" role="status">
+          Click the sculpture to change its breath. Enable sound to hear the city sing.
+        </p>
+      </aside>
+
+      <!-- Concept -->
+      <section id="concept" class="section" aria-labelledby="concept-title">
+        <div class="section-inner">
+          <p class="eyebrow">Concept</p>
+          <h2 id="concept-title" class="section-title">A city, felt — not measured.</h2>
+          <p class="section-body">
+            Cities are usually shown as maps and dashboards. The City Breathes turns the
+            invisible systems of urban life into a living organism: traffic sets its rhythm,
+            air quality colors its skin, weather moves its surface, and social activity makes
+            it shimmer and sing. It is a new medium that could not exist without technology —
+            interactive, networked, and evolving every second.
+          </p>
+          <div class="feature-grid">
+            <article class="card glass">
+              <h3>Interactive</h3>
+              <p>Touch or click the sculpture to change how it breathes. The viewer becomes a participant.</p>
+            </article>
+            <article class="card glass">
+              <h3>Data-driven</h3>
+              <p>Live public signals directly shape geometry, color, light, and sound in real time.</p>
+            </article>
+            <article class="card glass">
+              <h3>Procedural</h3>
+              <p>The form is generated by rules, not fixed frames — every moment is unique.</p>
+            </article>
+            <article class="card glass">
+              <h3>Evolving</h3>
+              <p>The sculpture changes across minutes, hours, and days with the world outside.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section id="features" class="section" aria-labelledby="features-title">
+        <div class="section-inner">
+          <p class="eyebrow">Features</p>
+          <h2 id="features-title" class="section-title">What you experience</h2>
+          <ul class="feature-list">
+            <li class="card glass"><span class="pip"></span> Real-time city data from public APIs (weather &amp; air quality).</li>
+            <li class="card glass"><span class="pip"></span> A breathing 3D sculpture with morphing, data-driven geometry.</li>
+            <li class="card glass"><span class="pip"></span> Generative audio via the Web Audio API, mapped to data intensity.</li>
+            <li class="card glass"><span class="pip"></span> Click-to-change breathing styles and live city switching.</li>
+            <li class="card glass"><span class="pip"></span> Past-day time-lapse mode to see a city's daily rhythm.</li>
+            <li class="card glass"><span class="pip"></span> Graceful demo fallback when live APIs are unavailable.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Mapping -->
+      <section id="mapping" class="section" aria-labelledby="mapping-title">
+        <div class="section-inner">
+          <p class="eyebrow">How it works</p>
+          <h2 id="mapping-title" class="section-title">How the city becomes motion</h2>
+          <div class="table-wrap glass">
+            <table class="data-table">
+              <thead>
+                <tr><th>Data</th><th>Visual effect</th><th>Sound</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Traffic</td><td>Breathing speed, rotation, pulse</td><td>Rhythm, filter cutoff</td></tr>
+                <tr><td>Air quality</td><td>Color stress, surface roughness</td><td>Harmonic content</td></tr>
+                <tr><td>Weather</td><td>Surface waves, lighting</td><td>Pitch base</td></tr>
+                <tr><td>Social</td><td>Particles, shimmer</td><td>Secondary oscillators</td></tr>
+                <tr><td>Overall</td><td>Deformation amplitude, energy</td><td>Volume</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Try / CTA -->
+      <section id="try" class="section section-cta" aria-labelledby="try-title">
+        <div class="section-inner center">
+          <p class="eyebrow">Experience</p>
+          <h2 id="try-title" class="section-title">Let the city breathe with you.</h2>
+          <p class="section-body">
+            Adjust the controls on the right, click the sculpture to shift its breath, and
+            enable sound to hear the data sing. It works with or without a live connection.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" type="button" id="enterCta">Open the console</button>
+            <a class="btn btn-ghost" href="#concept">Back to concept</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer glass" role="contentinfo">
+      <p>The City Breathes — art that could not exist without technology.</p>
+      <p class="muted">Built with Three.js &amp; the Web Audio API. Data: Open-Meteo, OpenAQ.</p>
+    </footer>
+
+    <noscript>
+      <div class="noscript glass">This experience needs JavaScript and WebGL. The sculpture cannot render without them.</div>
+    </noscript>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
