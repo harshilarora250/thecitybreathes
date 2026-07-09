@@ -100,3 +100,6 @@ When live APIs are unavailable, the application automatically uses procedurally 
 - Open-Meteo – Weather forecast and air-quality data
 - OpenAQ – Air quality measurements
 - Web Audio API – Browser-native generative sound
+
+## Contribution / Contact
+This project was developed by _elipseday Harshil Arora. You can reach him at elipseday@gmail.com or elipseday.67 on Signal
