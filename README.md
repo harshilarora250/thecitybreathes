@@ -1,6 +1,6 @@
 # The City Breathes
 
-**Tagline:** A living 3D sculpture that breathes, sings, and transforms in real time with the pulse of a city, **watch it breathe**
+**Tagline:** A living 3D sculpture that breathes, sings, and transforms in real time with the pulse of a city.
 
 ---
 
