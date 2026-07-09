@@ -21,7 +21,7 @@ This is not a dashboard. It is a new artistic medium that is:
 ```bash
 # Clone the repository
 git clone https://github.com/harshilarora250/thecitybreathes.git
-cd the-city-breathes
+cd thecitybreathes
 
 # Install dependencies
 npm install
