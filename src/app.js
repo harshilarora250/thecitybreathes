@@ -255,23 +255,29 @@ function init(THREE, veil) {
     const stressed = new THREE.Color(0xff7b6e);
     const electric = new THREE.Color(0x72b8ff);
     const warm = new THREE.Color(0xf1c76d);
-    const base = clean.clone().lerp(stressed, data.air);
-    // Weather: lower = worse (stormy/cold), higher = better (clear/warm)
-    const weatherAdjusted = 1 - data.weather;
-    return base.lerp(electric, data.social * 0.28).lerp(warm, weatherAdjusted * 0.18);
+    // Lower values = worse: invert so low air/social/weather drives stressed color
+    const air = 1 - data.air;
+    const social = 1 - data.social;
+    const weather = 1 - data.weather;
+    const base = clean.clone().lerp(stressed, air);
+    return base.lerp(electric, social * 0.28).lerp(warm, weather * 0.18);
   }
 
   function deformGeometry(time) {
     const data = state.data;
     const style = styles[state.styleKey];
-    const breathPhase = time * style.speed * state.visualSpeed * (0.65 + data.traffic * 1.1);
+    // Lower values = worse: invert each metric so low readings drive stress/distortion
+    const traffic = 1 - data.traffic;
+    const air = 1 - data.air;
+    const social = 1 - data.social;
+    const overall = 1 - data.overall;
+    const weather = 1 - data.weather;
+    const breathPhase = time * style.speed * state.visualSpeed * (0.65 + traffic * 1.1);
     const breath = Math.sin(breathPhase);
     const pulse = Math.pow(Math.max(0, breath), state.styleKey === "pulse" ? 3.5 : 1.4);
-    const amplitude = style.amp + data.overall * 0.34 + state.clickPulse * 0.3;
-    const roughness = style.roughness + data.air * 0.38 + data.social * 0.18;
+    const amplitude = style.amp + overall * 0.34 + state.clickPulse * 0.3;
+    const roughness = style.roughness + air * 0.38 + social * 0.18;
     const color = palette(data);
-    // Weather: lower = worse (more surface disturbance), higher = better (smoother)
-    const weatherAdjusted = 1 - data.weather;
     const pos = geometry.attributes.position.array;
     const wirePos = wire.geometry.attributes.position.array;
 
@@ -288,18 +294,18 @@ function init(THREE, veil) {
         Math.cos(ny * 5.6 - time * 1.2) *
         Math.sin(nz * 4.8 + time * 0.9);
       const fracture = state.styleKey === "fracture" ? Math.sign(wave) * 0.08 : 0;
-      const radius = 1 + pulse * amplitude + wave * roughness * 0.22 + fracture + weatherAdjusted * 0.05;
+      const radius = 1 + pulse * amplitude + wave * roughness * 0.22 + fracture + weather * 0.05;
       pos[i] = x * radius;
-      pos[i + 1] = y * radius * (1 + data.traffic * 0.05);
+      pos[i + 1] = y * radius * (1 + traffic * 0.05);
       pos[i + 2] = z * radius;
       wirePos[i] = pos[i] * 1.012;
       wirePos[i + 1] = pos[i + 1] * 1.012;
       wirePos[i + 2] = pos[i + 2] * 1.012;
 
       const cIndex = i;
-      vertexColors[cIndex] = clamp(color.r + wave * 0.08 + data.social * 0.12);
+      vertexColors[cIndex] = clamp(color.r + wave * 0.08 + social * 0.12);
       vertexColors[cIndex + 1] = clamp(color.g + pulse * 0.08);
-      vertexColors[cIndex + 2] = clamp(color.b + weatherAdjusted * 0.12);
+      vertexColors[cIndex + 2] = clamp(color.b + weather * 0.12);
     }
 
     geometry.attributes.position.needsUpdate = true;
@@ -309,10 +315,13 @@ function init(THREE, veil) {
   }
 
   function updateParticles(time) {
-    particles.rotation.y = time * (0.025 + state.data.social * 0.08);
+    // Lower values = worse: invert social/overall so low readings => calmer particles
+    const social = 1 - state.data.social;
+    const overall = 1 - state.data.overall;
+    particles.rotation.y = time * (0.025 + social * 0.08);
     particles.rotation.x = Math.sin(time * 0.12) * 0.12;
-    particles.material.opacity = 0.24 + state.data.social * 0.42 + state.clickPulse * 0.15;
-    particles.material.size = 0.012 + state.data.overall * 0.015;
+    particles.material.opacity = 0.24 + social * 0.42 + state.clickPulse * 0.15;
+    particles.material.size = 0.012 + overall * 0.015;
   }
 
   function setupAudio() {
@@ -350,15 +359,19 @@ function init(THREE, veil) {
     if (!audio) return;
     const now = audio.context.currentTime;
     const data = state.data;
-    const volume = state.audioOn ? 0.02 + data.overall * 0.16 * state.audioIntensity : 0;
-    // Weather: lower = worse (lower pitch = more ominous), higher = better (higher pitch = brighter)
-    const weatherAdjusted = 1 - data.weather;
-    const baseFreq = 120 + weatherAdjusted * 130 + data.social * 90;
+    // Lower values = worse: invert each metric so low readings => darker/quieter tone
+    const traffic = 1 - data.traffic;
+    const air = 1 - data.air;
+    const social = 1 - data.social;
+    const overall = 1 - data.overall;
+    const weather = 1 - data.weather;
+    const volume = state.audioOn ? 0.02 + overall * 0.16 * state.audioIntensity : 0;
+    const baseFreq = 120 + weather * 130 + social * 90;
     audio.master.gain.setTargetAtTime(volume, now, 0.08);
     audio.oscA.frequency.setTargetAtTime(baseFreq, now, 0.08);
-    audio.oscB.frequency.setTargetAtTime(baseFreq * (1.49 + data.air * 0.08), now, 0.08);
-    audio.filter.frequency.setTargetAtTime(420 + data.traffic * 1600 + data.social * 700, now, 0.12);
-    audio.lfo.frequency.setTargetAtTime(0.12 + data.traffic * 2.8, now, 0.12);
+    audio.oscB.frequency.setTargetAtTime(baseFreq * (1.49 + air * 0.08), now, 0.08);
+    audio.filter.frequency.setTargetAtTime(420 + traffic * 1600 + social * 700, now, 0.12);
+    audio.lfo.frequency.setTargetAtTime(0.12 + traffic * 2.8, now, 0.12);
   }
 
   function updateMetrics() {
@@ -417,11 +430,12 @@ function init(THREE, veil) {
 
     blendData(state.targetData, dt);
     state.clickPulse = Math.max(0, state.clickPulse - dt * 1.7);
+    const traffic = 1 - state.data.traffic;
     const spin = reducedMotion ? 0.06 : 1;
-    group.rotation.y += dt * (0.18 + state.data.traffic * 0.18) * spin;
+    group.rotation.y += dt * (0.18 + traffic * 0.18) * spin;
     group.rotation.x = Math.sin(time * 0.2) * (reducedMotion ? 0.03 : 0.08);
-    keyLight.intensity = 42 + state.data.overall * 42;
-    warmLight.intensity = 12 + state.data.air * 35;
+    keyLight.intensity = 42 + (1 - state.data.overall) * 42;
+    warmLight.intensity = 12 + (1 - state.data.air) * 35;
     deformGeometry(time);
     updateParticles(time);
     updateAudio();
@@ -482,43 +496,33 @@ function init(THREE, veil) {
     });
     if (els.enterCta || els.focusToggle || els.closeConsole) {
       const consoleEl = document.getElementById("console");
-      const setFocus = (on) => {
-        document.body.classList.toggle("focus-mode", on);
-        if (els.focusToggle) els.focusToggle.setAttribute("aria-pressed", String(on));
-        if (on && consoleEl) consoleEl.querySelector("select")?.focus({ preventScroll: true });
-      };
-      const toggleFocus = () => setFocus(!document.body.classList.contains("focus-mode"));
       const showConsole = () => {
-        if (consoleEl) {
-          consoleEl.classList.remove("hidden");
-          consoleEl.classList.add("active");
-          els.enterCta.classList.add("hidden");
-          els.tooltip.textContent = "Click the sculpture to change its breath. Enable sound to hear the city sing.";
-        }
+        if (!consoleEl) return;
+        consoleEl.classList.remove("hidden");
+        consoleEl.classList.add("active");
+        document.body.classList.remove("focus-mode");
+        document.body.classList.add("console-mode");
+        els.enterCta.classList.add("hidden");
+        els.tooltip.textContent = "Click the sculpture to change its breath. Enable sound to hear the city sing.";
       };
       const hideConsole = () => {
-        if (consoleEl) {
-          consoleEl.classList.remove("active");
-          consoleEl.classList.add("hidden");
-          els.enterCta.classList.remove("hidden");
-        }
+        if (!consoleEl) return;
+        consoleEl.classList.remove("active");
+        consoleEl.classList.add("hidden");
+        document.body.classList.remove("console-mode");
+        document.body.classList.remove("focus-mode");
+        els.enterCta.classList.remove("hidden");
       };
-      if (els.enterCta) {
-        els.enterCta.addEventListener("click", showConsole);
-      }
+      if (els.enterCta) els.enterCta.addEventListener("click", showConsole);
       if (els.focusToggle) {
         els.focusToggle.addEventListener("click", () => {
-          toggleFocus();
-          if (consoleEl) {
-            consoleEl.classList.remove("active");
-            consoleEl.classList.add("hidden");
-            els.enterCta.classList.remove("hidden");
-          }
+          // Hide the console and bring the front-end (with the Open-console
+          // button in #try) back into view.
+          document.body.classList.remove("focus-mode");
+          hideConsole();
         });
       }
-      if (els.closeConsole) {
-        els.closeConsole.addEventListener("click", hideConsole);
-      }
+      if (els.closeConsole) els.closeConsole.addEventListener("click", hideConsole);
     }
 
     // Cursor-tracked light source for the liquid-glass specular sheen

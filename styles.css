@@ -571,6 +571,17 @@ body.focus-mode #focusToggle {
   background: rgba(139, 214, 180, 0.12);
 }
 
+/* ---------- Console mode (front-end hidden, console shown) ---------- */
+body.console-mode .nav,
+body.console-mode .hero,
+body.console-mode .section,
+body.console-mode .footer {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+
 /* ---------- Content sections ---------- */
 .section {
   position: relative;
