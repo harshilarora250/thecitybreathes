@@ -60,14 +60,18 @@
         </div>
       </section>
 
-      <!-- Console / live controls -->
-      <aside id="console" class="console glass" aria-label="Live sculpture controls">
+      <!-- Console / live controls (hidden by default, shown on click) -->
+      <aside id="console" class="console glass hidden" aria-label="Live sculpture controls">
         <div class="console-head">
           <div>
             <p class="eyebrow">Control room</p>
             <h2>Urban Pulse</h2>
           </div>
           <div class="console-head-actions">
+            <button id="closeConsole" class="icon-button" type="button" aria-label="Close console">
+              <span aria-hidden="true">✕</span>
+              <span class="sr-only">Close console</span>
+            </button>
             <button id="focusToggle" class="icon-button" type="button" aria-pressed="false" title="Focus mode — hide everything but the sculpture">
               <span aria-hidden="true">⤢</span>
               <span class="sr-only">Toggle focus mode</span>
@@ -121,7 +125,7 @@
         <div class="metrics" aria-live="polite">
           <div class="metric"><span>Traffic</span><strong id="trafficMetric">--</strong></div>
           <div class="metric"><span>Air</span><strong id="airMetric">--</strong></div>
-          <div class="metric"><span>Weather</span><strong id="weatherMetric">--</strong></div>
+          <div class="metric"><span>Weather <em class="sub">(lower = worse)</em></span><strong id="weatherMetric">--</strong></div>
           <div class="metric"><span>Social</span><strong id="socialMetric">--</strong></div>
         </div>
 

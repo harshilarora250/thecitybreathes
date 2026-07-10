@@ -142,7 +142,8 @@ function init(THREE, veil) {
     weather: document.querySelector("#weatherMetric"),
     social: document.querySelector("#socialMetric"),
     enterCta: document.querySelector("#enterCta"),
-    focusToggle: document.querySelector("#focusToggle")
+    focusToggle: document.querySelector("#focusToggle"),
+    closeConsole: document.querySelector("#closeConsole")
   };
 
   const state = {
@@ -255,7 +256,9 @@ function init(THREE, veil) {
     const electric = new THREE.Color(0x72b8ff);
     const warm = new THREE.Color(0xf1c76d);
     const base = clean.clone().lerp(stressed, data.air);
-    return base.lerp(electric, data.social * 0.28).lerp(warm, data.weather * 0.18);
+    // Weather: lower = worse (stormy/cold), higher = better (clear/warm)
+    const weatherAdjusted = 1 - data.weather;
+    return base.lerp(electric, data.social * 0.28).lerp(warm, weatherAdjusted * 0.18);
   }
 
   function deformGeometry(time) {
@@ -267,6 +270,8 @@ function init(THREE, veil) {
     const amplitude = style.amp + data.overall * 0.34 + state.clickPulse * 0.3;
     const roughness = style.roughness + data.air * 0.38 + data.social * 0.18;
     const color = palette(data);
+    // Weather: lower = worse (more surface disturbance), higher = better (smoother)
+    const weatherAdjusted = 1 - data.weather;
     const pos = geometry.attributes.position.array;
     const wirePos = wire.geometry.attributes.position.array;
 
@@ -283,7 +288,7 @@ function init(THREE, veil) {
         Math.cos(ny * 5.6 - time * 1.2) *
         Math.sin(nz * 4.8 + time * 0.9);
       const fracture = state.styleKey === "fracture" ? Math.sign(wave) * 0.08 : 0;
-      const radius = 1 + pulse * amplitude + wave * roughness * 0.22 + fracture + data.weather * 0.05;
+      const radius = 1 + pulse * amplitude + wave * roughness * 0.22 + fracture + weatherAdjusted * 0.05;
       pos[i] = x * radius;
       pos[i + 1] = y * radius * (1 + data.traffic * 0.05);
       pos[i + 2] = z * radius;
@@ -294,7 +299,7 @@ function init(THREE, veil) {
       const cIndex = i;
       vertexColors[cIndex] = clamp(color.r + wave * 0.08 + data.social * 0.12);
       vertexColors[cIndex + 1] = clamp(color.g + pulse * 0.08);
-      vertexColors[cIndex + 2] = clamp(color.b + data.weather * 0.12);
+      vertexColors[cIndex + 2] = clamp(color.b + weatherAdjusted * 0.12);
     }
 
     geometry.attributes.position.needsUpdate = true;
@@ -346,7 +351,9 @@ function init(THREE, veil) {
     const now = audio.context.currentTime;
     const data = state.data;
     const volume = state.audioOn ? 0.02 + data.overall * 0.16 * state.audioIntensity : 0;
-    const baseFreq = 120 + data.weather * 130 + data.social * 90;
+    // Weather: lower = worse (lower pitch = more ominous), higher = better (higher pitch = brighter)
+    const weatherAdjusted = 1 - data.weather;
+    const baseFreq = 120 + weatherAdjusted * 130 + data.social * 90;
     audio.master.gain.setTargetAtTime(volume, now, 0.08);
     audio.oscA.frequency.setTargetAtTime(baseFreq, now, 0.08);
     audio.oscB.frequency.setTargetAtTime(baseFreq * (1.49 + data.air * 0.08), now, 0.08);
@@ -473,7 +480,7 @@ function init(THREE, veil) {
         els.tooltip.textContent = `Breathing style changed to ${state.styleKey}.`;
       }
     });
-    if (els.enterCta || els.focusToggle) {
+    if (els.enterCta || els.focusToggle || els.closeConsole) {
       const consoleEl = document.getElementById("console");
       const setFocus = (on) => {
         document.body.classList.toggle("focus-mode", on);
@@ -481,8 +488,37 @@ function init(THREE, veil) {
         if (on && consoleEl) consoleEl.querySelector("select")?.focus({ preventScroll: true });
       };
       const toggleFocus = () => setFocus(!document.body.classList.contains("focus-mode"));
-      if (els.enterCta) els.enterCta.addEventListener("click", () => setFocus(true));
-      if (els.focusToggle) els.focusToggle.addEventListener("click", toggleFocus);
+      const showConsole = () => {
+        if (consoleEl) {
+          consoleEl.classList.remove("hidden");
+          consoleEl.classList.add("active");
+          els.enterCta.classList.add("hidden");
+          els.tooltip.textContent = "Click the sculpture to change its breath. Enable sound to hear the city sing.";
+        }
+      };
+      const hideConsole = () => {
+        if (consoleEl) {
+          consoleEl.classList.remove("active");
+          consoleEl.classList.add("hidden");
+          els.enterCta.classList.remove("hidden");
+        }
+      };
+      if (els.enterCta) {
+        els.enterCta.addEventListener("click", showConsole);
+      }
+      if (els.focusToggle) {
+        els.focusToggle.addEventListener("click", () => {
+          toggleFocus();
+          if (consoleEl) {
+            consoleEl.classList.remove("active");
+            consoleEl.classList.add("hidden");
+            els.enterCta.classList.remove("hidden");
+          }
+        });
+      }
+      if (els.closeConsole) {
+        els.closeConsole.addEventListener("click", hideConsole);
+      }
     }
 
     // Cursor-tracked light source for the liquid-glass specular sheen

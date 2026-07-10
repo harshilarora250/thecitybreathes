@@ -358,6 +358,25 @@ h1 {
   padding: 1.2rem;
   overflow: auto;
   transition: opacity 0.4s ease, transform 0.4s ease;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.console.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.console.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1.02);
+}
+
+.hidden {
+  display: none !important;
 }
 
 .console-head {
@@ -470,6 +489,14 @@ input[type="range"] {
   letter-spacing: 0.04em;
 }
 
+.metric span em {
+  display: inline;
+  font-weight: normal;
+  opacity: 0.7;
+  font-size: 0.68rem;
+  margin-left: 0.3rem;
+}
+
 .metric strong {
   display: block;
   margin-top: 0.35rem;
@@ -531,6 +558,10 @@ body.focus-mode .footer {
 }
 
 body.focus-mode .console {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.45s ease, visibility 0.45s ease;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.25) inset;
 }
 
