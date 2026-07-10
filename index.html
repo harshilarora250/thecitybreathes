@@ -72,10 +72,6 @@
               <span aria-hidden="true">✕</span>
               <span class="sr-only">Close console</span>
             </button>
-            <button id="focusToggle" class="icon-button" type="button" aria-pressed="false" title="Close console and show controls">
-              <span aria-hidden="true">⤢</span>
-              <span class="sr-only">Close console</span>
-            </button>
             <button id="audioToggle" class="icon-button" type="button" aria-pressed="false" title="Toggle sound">
               <span id="audioIcon" aria-hidden="true">♪</span>
               <span class="sr-only">Toggle sound</span>
@@ -225,6 +221,13 @@
         </div>
       </section>
     </main>
+
+    <!-- Persistent console toggle (⤢). Lives outside the console so it stays
+         visible while the console is hidden — click again to bring it back. -->
+    <button id="toggleConsoleBtn" class="icon-button" type="button" aria-pressed="false" title="Hide or show the console" aria-label="Hide or show the console">
+      <span aria-hidden="true">⤢</span>
+      <span class="sr-only">Toggle console</span>
+    </button>
 
     <footer class="footer glass" role="contentinfo">
       <p>The City Breathes — art that could not exist without technology.</p>

@@ -142,7 +142,7 @@ function init(THREE, veil) {
     weather: document.querySelector("#weatherMetric"),
     social: document.querySelector("#socialMetric"),
     enterCta: document.querySelector("#enterCta"),
-    focusToggle: document.querySelector("#focusToggle"),
+    toggleConsole: document.querySelector("#toggleConsoleBtn"),
     closeConsole: document.querySelector("#closeConsole")
   };
 
@@ -494,9 +494,9 @@ function init(THREE, veil) {
         els.tooltip.textContent = `Breathing style changed to ${state.styleKey}.`;
       }
     });
-    if (els.enterCta || els.focusToggle || els.closeConsole) {
+    if (els.enterCta || els.closeConsole || els.toggleConsole) {
       const consoleEl = document.getElementById("console");
-      const showConsole = () => {
+      const openConsole = () => {
         if (!consoleEl) return;
         consoleEl.classList.remove("hidden");
         consoleEl.classList.add("active");
@@ -505,7 +505,7 @@ function init(THREE, veil) {
         els.enterCta.classList.add("hidden");
         els.tooltip.textContent = "Click the sculpture to change its breath. Enable sound to hear the city sing.";
       };
-      const hideConsole = () => {
+      const closeConsole = () => {
         if (!consoleEl) return;
         consoleEl.classList.remove("active");
         consoleEl.classList.add("hidden");
@@ -513,16 +513,24 @@ function init(THREE, veil) {
         document.body.classList.remove("focus-mode");
         els.enterCta.classList.remove("hidden");
       };
-      if (els.enterCta) els.enterCta.addEventListener("click", showConsole);
-      if (els.focusToggle) {
-        els.focusToggle.addEventListener("click", () => {
-          // Hide the console and bring the front-end (with the Open-console
-          // button in #try) back into view.
-          document.body.classList.remove("focus-mode");
-          hideConsole();
-        });
-      }
-      if (els.closeConsole) els.closeConsole.addEventListener("click", hideConsole);
+      const toggleConsole = () => {
+        if (!consoleEl) return;
+        const isOpen = consoleEl.classList.contains("active");
+        if (isOpen) {
+          // Hide only the console panel; keep the front-end hidden (console-mode
+          // stays) so the toggle button remains to bring it back.
+          consoleEl.classList.remove("active");
+          consoleEl.classList.add("hidden");
+        } else {
+          consoleEl.classList.remove("hidden");
+          consoleEl.classList.add("active");
+          document.body.classList.add("console-mode");
+          els.enterCta.classList.add("hidden");
+        }
+      };
+      if (els.enterCta) els.enterCta.addEventListener("click", openConsole);
+      if (els.closeConsole) els.closeConsole.addEventListener("click", closeConsole);
+      if (els.toggleConsole) els.toggleConsole.addEventListener("click", toggleConsole);
     }
 
     // Cursor-tracked light source for the liquid-glass specular sheen
