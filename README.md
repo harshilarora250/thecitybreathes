@@ -101,5 +101,8 @@ When live APIs are unavailable, the application automatically uses procedurally 
 - OpenAQ – Air quality measurements
 - Web Audio API – Browser-native generative sound
 
+## AI Declaration
+AI was used for the "breath" functionality. Also, partially for the format of this README
+
 ## Contribution / Contact
-This project was developed by _elipseday Harshil Arora. You can reach him at elipseday@gmail.com or elipseday.67 on Signal
+This project was developed by _elipseday [Harshil Arora](https://elipseday-nine.vercel.app). You can _click_ on my name to view my portfolio.
