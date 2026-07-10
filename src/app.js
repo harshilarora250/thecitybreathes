@@ -1,6 +1,35 @@
 // The City Breathes — front-end engine
 // Three.js (3D) + Web Audio API (sound), with graceful degradation.
 
+// Public Cloudflare Turnstile site key (safe to ship to the browser).
+const TURNSTILE_SITEKEY = "0x4AAAAAADzaozIdfhvdQea7";
+
+// Footer indicator: reflect whether the Turnstile script loaded + the secret
+// is configured. "Active" means the protection is armed on this page.
+function updateTurnstileIndicator() {
+  const el = document.getElementById("turnstile-indicator");
+  if (!el) return;
+  if (window.turnstile) {
+    el.textContent = "Turnstile: active";
+    el.classList.add("is-active");
+    el.classList.remove("is-inactive");
+  } else {
+    el.textContent = "Turnstile: inactive";
+    el.classList.add("is-inactive");
+    el.classList.remove("is-active");
+  }
+}
+
+function watchTurnstile() {
+  let tries = 0;
+  const tick = () => {
+    if (window.turnstile) return updateTurnstileIndicator();
+    if (tries++ < 40) setTimeout(tick, 200);
+    else updateTurnstileIndicator();
+  };
+  tick();
+}
+
 const THREE_URL = "https://esm.sh/three@0.166.1";
 
 const cities = {
@@ -496,6 +525,12 @@ function init(THREE, veil) {
     });
     if (els.enterCta || els.closeConsole || els.toggleConsole) {
       const consoleEl = document.getElementById("console");
+      const gateEl = document.getElementById("turnstileGate");
+      const gateStatus = document.getElementById("turnstile-gate-status");
+      const widgetMount = document.getElementById("turnstile-console-widget");
+      let consoleUnlocked = false; // one successful check unlocks for the session
+      let turnstileRendered = false;
+
       const openConsole = () => {
         if (!consoleEl) return;
         consoleEl.classList.remove("hidden");
@@ -503,6 +538,7 @@ function init(THREE, veil) {
         document.body.classList.remove("focus-mode");
         document.body.classList.add("console-mode");
         els.enterCta.classList.add("hidden");
+        if (gateEl) gateEl.hidden = true;
         els.tooltip.textContent = "Click the sculpture to change its breath. Enable sound to hear the city sing.";
       };
       const closeConsole = () => {
@@ -521,14 +557,72 @@ function init(THREE, veil) {
           // stays) so the toggle button remains to bring it back.
           consoleEl.classList.remove("active");
           consoleEl.classList.add("hidden");
-        } else {
+        } else if (consoleUnlocked) {
           consoleEl.classList.remove("hidden");
           consoleEl.classList.add("active");
           document.body.classList.add("console-mode");
           els.enterCta.classList.add("hidden");
+        } else {
+          // Not verified yet — route through the human check instead.
+          requestConsole();
         }
       };
-      if (els.enterCta) els.enterCta.addEventListener("click", openConsole);
+
+      // Show the Turnstile challenge, rendering the widget on demand once the
+      // api.js script has loaded.
+      const requestConsole = () => {
+        if (consoleUnlocked) return openConsole();
+        if (!gateEl || !widgetMount) return openConsole(); // no widget → fail open
+        gateEl.hidden = false;
+        if (gateStatus) gateStatus.textContent = "";
+        if (!turnstileRendered && window.turnstile) {
+          window.turnstile.render(widgetMount, {
+            sitekey: TURNSTILE_SITEKEY,
+            callback: onTurnstileVerified,
+            theme: "dark"
+          });
+          turnstileRendered = true;
+        } else if (!turnstileRendered) {
+          setTimeout(requestConsole, 200); // api.js not ready yet
+        }
+      };
+
+      // Called by Turnstile with a token; verify server-side, then open.
+      const onTurnstileVerified = async (token) => {
+        if (!gateStatus) return;
+        gateStatus.textContent = "Verifying…";
+        try {
+          const res = await fetch("/api/verify-turnstile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token })
+          });
+          const data = await res.json();
+          if (data.success) {
+            consoleUnlocked = true;
+            openConsole();
+          } else {
+            gateStatus.textContent = "Verification failed. Please try again.";
+            resetTurnstile();
+          }
+        } catch {
+          gateStatus.textContent = "Verification unavailable. Please try again.";
+          resetTurnstile();
+        }
+      };
+      window.onTurnstileVerified = onTurnstileVerified;
+
+      const resetTurnstile = () => {
+        if (widgetMount && window.turnstile && turnstileRendered) {
+          try {
+            window.turnstile.reset(widgetMount);
+          } catch {
+            /* widget already gone */
+          }
+        }
+      };
+
+      if (els.enterCta) els.enterCta.addEventListener("click", requestConsole);
       if (els.closeConsole) els.closeConsole.addEventListener("click", closeConsole);
       if (els.toggleConsole) els.toggleConsole.addEventListener("click", toggleConsole);
     }
@@ -586,6 +680,7 @@ function init(THREE, veil) {
   setupReveal();
   resize();
   bindEvents();
+  watchTurnstile();
   refreshData();
   requestAnimationFrame(animate);
 }

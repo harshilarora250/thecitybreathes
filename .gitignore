@@ -1,1 +1,6 @@
 DOCUMENTATION.md
+
+# Secrets (Cloudflare Turnstile secret key, etc.)
+.env
+.env.local
+.env.*.local

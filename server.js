@@ -14,9 +14,64 @@ const types = {
   ".svg": "image/svg+xml; charset=utf-8"
 };
 
+const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
+
+// Verify a Cloudflare Turnstile token against the siteverify API.
+async function verifyTurnstile(token) {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) {
+    return { success: false, error: "TURNSTILE_SECRET_KEY not configured" };
+  }
+  const resp = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token)}`
+  });
+  return resp.json();
+}
+
+// Read and parse a JSON request body, capped at `limit` bytes.
+function readJsonBody(req, limit = 1 << 16) {
+  return new Promise((resolve) => {
+    let size = 0;
+    const chunks = [];
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > limit) {
+        req.destroy();
+        resolve(null);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+      } catch {
+        resolve(null);
+      }
+    });
+    req.on("error", () => resolve(null));
+  });
+}
+
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
+
+    if (req.method === "POST" && url.pathname === "/api/verify-turnstile") {
+      const payload = await readJsonBody(req);
+      if (!payload || !payload.token) {
+        res.writeHead(400, jsonHeaders);
+        res.end(JSON.stringify({ success: false, error: "missing token" }));
+        return;
+      }
+      const result = await verifyTurnstile(payload.token);
+      res.writeHead(200, jsonHeaders);
+      res.end(JSON.stringify(result));
+      return;
+    }
+
     const requested = url.pathname === "/" ? "/index.html" : url.pathname;
     const filePath = normalize(join(root, requested));
 
