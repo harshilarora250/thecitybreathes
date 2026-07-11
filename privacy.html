@@ -23,14 +23,47 @@
       </p>
 
       <p>
-        We do not use cookies for analytics and we do not sell or share any
-        personal information. The sculpture itself only uses publicly available
-        city data (Open-Meteo, OpenAQ) to render its visuals.
+        The sculpture is driven by <strong>publicly available city data</strong>
+        fetched from third-party providers. To render the artwork we send only the
+        selected city's geographic coordinates (latitude/longitude) to these
+        providers — never your personal information. Each provider may, however,
+        collect technical and usage data (such as IP address and request
+        metadata) in the course of serving those requests, subject to their own
+        privacy practices:
+      </p>
+
+      <ul>
+        <li>
+          <strong>Open-Meteo</strong> — provides live weather (temperature, wind,
+          precipitation, cloud cover, humidity) and air-quality readings
+          (PM2.5/PM10, NO₂, O₃). Requests are made from our server by city
+          coordinates. See the
+          <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo website</a>.
+        </li>
+        <li>
+          <strong>TomTom</strong> — provides live road-traffic congestion used to
+          set the sculpture's breathing rate. We request traffic flow for the
+          selected city's coordinates through our server, which holds the TomTom
+          API key. TomTom may collect usage and technical data from these
+          requests. See the
+          <a href="https://www.tomtom.com/legal/privacy/" target="_blank" rel="noopener">TomTom Privacy Statement</a>.
+        </li>
+        <li>
+          <strong>Cloudflare Turnstile</strong> — the human-verification challenge
+          described above. See the
+          <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Privacy Policy</a>.
+        </li>
+      </ul>
+
+      <p>
+        We do not use cookies for analytics, and we do not sell or share any
+        personal information. No account, login, or personally identifiable
+        information is collected by this site itself.
       </p>
 
       <p>
-        For details on how Cloudflare handles data, see the
-        <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Privacy Policy</a>.
+        For details on how each provider handles data, see their respective
+        privacy policies linked above.
       </p>
 
       <p><a href="./index.html">← Back to The City Breathes</a></p>
