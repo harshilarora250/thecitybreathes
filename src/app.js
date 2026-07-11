@@ -60,10 +60,41 @@ function formatPct(value) {
   return `${Math.round(clamp(value) * 100)}`;
 }
 
+// Smooth ease used to shape the breath curve (no harsh linear ramps).
+function easeInOutSine(x) {
+  return -(Math.cos(Math.PI * x) - 1) / 2;
+}
+
+// Physiological breath over one cycle (phase 0..1): a quicker, accelerating-
+// then-decelerating inhale, a brief apical hold, a longer smoother exhale, and
+// a soft pause at the emptied bottom. This asymmetry — not a pure sine — is
+// what reads as "alive".
+function breathEnvelope(phase) {
+  const p = phase - Math.floor(phase);
+  const inhaleEnd = 0.4;
+  const holdEnd = 0.48;
+  const exhaleEnd = 0.93;
+  if (p < inhaleEnd) return easeInOutSine(p / inhaleEnd);
+  if (p < holdEnd) return 1;
+  if (p < exhaleEnd) return 1 - easeInOutSine((p - holdEnd) / (exhaleEnd - holdEnd));
+  return 0;
+}
+
+// Convert pollutant readings into a 0..1 "cleanliness" score (higher = cleaner).
+function aqiToClean(pm25, pm10, no2, o3) {
+  const p25 = clamp((pm25 || 0) / 75);
+  const p10 = clamp((pm10 || 0) / 150);
+  const n2 = clamp((no2 || 0) / 120);
+  const oz = clamp((o3 || 0) / 180);
+  const bad = p25 * 0.45 + p10 * 0.25 + n2 * 0.18 + oz * 0.12;
+  return clamp(1 - bad);
+}
+
 function makeFallbackData(cityKey) {
   const city = cities[cityKey];
   const now = Date.now();
   const hour = new Date().getHours();
+  const month = new Date().getMonth();
   const commute = Math.max(
     Math.exp(-Math.pow(hour - 8, 2) / 10),
     Math.exp(-Math.pow(hour - 18, 2) / 10)
@@ -71,7 +102,16 @@ function makeFallbackData(cityKey) {
   const seed = Math.abs(Math.sin(city.lat * 0.13 + city.lon * 0.07 + now / 3600000));
   const traffic = clamp(0.25 + commute * 0.55 + seed * 0.18);
   const air = clamp(0.35 + seed * 0.45 + (city.lat > 27 ? 0.12 : 0));
-  const weather = clamp(0.25 + Math.abs(Math.sin(now / 4800000 + city.lon)) * 0.65);
+  // Plausible weather derived from latitude, season, and time of day so the
+  // fallback sculpture still reads as a real place.
+  const seasonal = Math.sin(((month - 6) / 12) * Math.PI * 2);
+  const diurnal = Math.sin(((hour - 15) / 24) * Math.PI * 2);
+  const temperature = 28 - Math.abs(city.lat - 10) * 0.5 + seasonal * 7 + diurnal * 5 + (seed - 0.5) * 4;
+  const wind = clamp(0.2 + Math.abs(Math.sin(now / 4800000 + city.lon)) * 0.6);
+  const rain = clamp(Math.max(0, Math.sin(now / 9000000 + city.lat)) * 0.5 + (city.lat > 8 && city.lat < 30 ? 0.15 : 0));
+  const cloud = clamp(0.3 + Math.abs(Math.sin(now / 6000000 + city.lon)) * 0.5);
+  const humidity = clamp(50 + rain * 30 + (city.lat > 8 && city.lat < 25 ? 15 : 0) + (seed - 0.5) * 10);
+  const weather = clamp(1 - wind * 0.3 - rain * 0.6);
   const social = clamp(0.2 + Math.abs(Math.sin(now / 2100000 + city.lat)) * 0.7);
   return {
     city: city.name,
@@ -81,7 +121,12 @@ function makeFallbackData(cityKey) {
     air,
     weather,
     social,
-    overall: (traffic + air + weather + social) / 4
+    overall: (traffic + air + weather + social) / 4,
+    temperature,
+    wind,
+    rain,
+    cloud,
+    humidity
   };
 }
 
@@ -99,31 +144,56 @@ async function fetchCityData(cityKey) {
     if (!weatherRes.ok || !airRes.ok) throw new Error("City APIs unavailable");
 
     const [weatherJson, airJson] = await Promise.all([weatherRes.json(), airRes.json()]);
-    const weatherNow = weatherJson.current || {};
-    const airNow = airJson.current || {};
+    const w = weatherJson.current || {};
+    const a = airJson.current || {};
     const fallback = makeFallbackData(cityKey);
 
-    const wind = clamp((weatherNow.wind_speed_10m || 0) / 55);
-    const cloud = clamp((weatherNow.cloud_cover || 0) / 100);
-    const rain = clamp((weatherNow.precipitation || 0) / 12);
-    const weather = clamp(wind * 0.45 + cloud * 0.35 + rain * 0.2);
-    const pm25 = clamp((airNow.pm2_5 || 0) / 80);
-    const pm10 = clamp((airNow.pm10 || 0) / 140);
-    const no2 = clamp((airNow.nitrogen_dioxide || 0) / 120);
-    const air = clamp(pm25 * 0.5 + pm10 * 0.3 + no2 * 0.2);
+    const wind = clamp((w.wind_speed_10m || 0) / 55);
+    const cloud = clamp((w.cloud_cover || 0) / 100);
+    const rain = clamp((w.precipitation || 0) / 12);
+    const temperature = typeof w.temperature_2m === "number" ? w.temperature_2m : fallback.temperature;
+    const humidity = typeof w.relative_humidity_2m === "number" ? w.relative_humidity_2m : fallback.humidity;
+    const air = aqiToClean(a.pm2_5, a.pm10, a.nitrogen_dioxide, a.ozone);
+    const weather = clamp(1 - wind * 0.3 - rain * 0.6);
+    // Real traffic from TomTom (via our server proxy); fall back to the
+    // time-of-day estimate if the key is missing or the request fails.
+    const liveTraffic = await fetchTraffic(cityKey);
+    const traffic = liveTraffic != null ? liveTraffic : fallback.traffic;
+    const social = fallback.social;
+    const overall = (traffic + air + weather + social) / 4;
 
     return {
       city: city.name,
       timestamp: new Date().toISOString(),
       live: true,
-      traffic: fallback.traffic,
+      traffic,
       air,
       weather,
-      social: fallback.social,
-      overall: (fallback.traffic + air + weather + fallback.social) / 4
+      social,
+      overall,
+      temperature,
+      wind,
+      rain,
+      cloud,
+      humidity
     };
   } catch {
     return makeFallbackData(cityKey);
+  }
+}
+
+// Live traffic congestion (0..1) via our server proxy, which keeps the TomTom
+// key server-side. Returns null when unavailable so the caller can fall back.
+async function fetchTraffic(cityKey) {
+  const city = cities[cityKey];
+  try {
+    const res = await fetch(`/api/traffic?lat=${city.lat}&lon=${city.lon}`);
+    if (!res.ok) return null;
+    const j = await res.json();
+    if (!j || j.ok === false || typeof j.traffic !== "number") return null;
+    return clamp(j.traffic);
+  } catch {
+    return null;
   }
 }
 
@@ -185,7 +255,8 @@ function init(THREE, veil) {
     clickPulse: 0,
     data: makeFallbackData("dubai"),
     targetData: makeFallbackData("dubai"),
-    lastFetch: 0
+    lastFetch: 0,
+    breathPhase: 0
   };
 
   const renderer = new THREE.WebGLRenderer({
@@ -258,7 +329,8 @@ function init(THREE, veil) {
   );
   scene.add(particles);
 
-  scene.add(new THREE.AmbientLight(0xd8fff0, 0.55));
+  const ambientLight = new THREE.AmbientLight(0xd8fff0, 0.55);
+  scene.add(ambientLight);
   const keyLight = new THREE.PointLight(0x8bd6b4, 55, 20);
   keyLight.position.set(3.8, 3.5, 4.5);
   scene.add(keyLight);
@@ -281,34 +353,53 @@ function init(THREE, veil) {
 
   function palette(data) {
     const clean = new THREE.Color(0x8bd6b4);
-    const stressed = new THREE.Color(0xff7b6e);
-    const electric = new THREE.Color(0x72b8ff);
-    const warm = new THREE.Color(0xf1c76d);
-    // Lower values = worse: invert so low air/social/weather drives stressed color
-    const air = 1 - data.air;
-    const social = 1 - data.social;
-    const weather = 1 - data.weather;
-    const base = clean.clone().lerp(stressed, air);
-    return base.lerp(electric, social * 0.28).lerp(warm, weather * 0.18);
+    const stressed = new THREE.Color(0xff6b5e);
+    const cold = new THREE.Color(0x6fb6ff);
+    const warm = new THREE.Color(0xf2b25a);
+    const airPoor = 1 - data.air; // poor air -> redder, strained skin
+    const base = clean.clone().lerp(stressed, airPoor * 0.85);
+    const tempNorm = clamp((data.temperature + 5) / 40); // -5C..35C -> 0..1
+    const tempColor = cold.clone().lerp(warm, tempNorm); // hotter -> warmer hues
+    return base.lerp(tempColor, 0.45);
   }
 
-  function deformGeometry(time) {
+  function deformGeometry(time, dt) {
     const data = state.data;
     const style = styles[state.styleKey];
-    // Lower values = worse: invert each metric so low readings drive stress/distortion
-    const traffic = 1 - data.traffic;
-    const air = 1 - data.air;
-    const social = 1 - data.social;
-    const overall = 1 - data.overall;
-    const weather = 1 - data.weather;
-    const breathPhase = time * style.speed * state.visualSpeed * (0.65 + traffic * 1.1);
-    const breath = Math.sin(breathPhase);
-    const pulse = Math.pow(Math.max(0, breath), state.styleKey === "pulse" ? 3.5 : 1.4);
-    const amplitude = style.amp + overall * 0.34 + state.clickPulse * 0.3;
-    const roughness = style.roughness + air * 0.38 + social * 0.18;
+    // Raw signals. Higher traffic = busier; lower air = more polluted.
+    const traffic = clamp(data.traffic);
+    const airPoor = 1 - clamp(data.air);
+    const wind = clamp(data.wind);
+    const rain = clamp(data.rain);
+    const overall = clamp(data.overall);
+
+    // --- Physiological breathing ---------------------------------------
+    // Breaths per minute: resting ~7 at empty streets, up to ~20 in gridlock.
+    // Integrating phase by dt (not multiplying time) lets the rate shift
+    // smoothly as traffic changes, with no jumps.
+    const bpm = lerp(7, 20, traffic) * style.speed * state.visualSpeed;
+    const cyclesPerSec = bpm / 60;
+    // Subtle sinus-arrhythmia wobble so no two breaths are identical.
+    const variability = 1 + Math.sin(time * 0.37) * 0.05 + Math.sin(time * 0.11) * 0.03;
+    state.breathPhase += dt * cyclesPerSec * variability;
+    const env = breathEnvelope(state.breathPhase);
+    // Pointed inhale peak for "pulse"; rounder for the others.
+    const pulse = Math.pow(env, state.styleKey === "pulse" ? 1.9 : 1.25);
+
+    // Strained air adds a faint high-frequency tremor to the whole body.
+    const strain = airPoor * (0.5 + 0.5 * Math.sin(time * 9.0)) * 0.03;
+    const amplitude = style.amp + overall * 0.18 + state.clickPulse * 0.3 + strain;
+    // Poor air roughens the skin; wind adds flow (handled in the wave term).
+    const roughness = style.roughness + airPoor * 0.5;
     const color = palette(data);
+    // Rougher, darker when air is bad; slight lift when hot/energetic.
+    const darken = 1 - airPoor * 0.4;
     const pos = geometry.attributes.position.array;
     const wirePos = wire.geometry.attributes.position.array;
+
+    // Wind makes the surface flow: a directional travelling wave whose speed
+    // and depth scale with wind strength.
+    const flow = time * (0.6 + wind * 3.2);
 
     for (let i = 0; i < pos.length; i += 3) {
       const x = basePositions[i];
@@ -318,39 +409,47 @@ function init(THREE, veil) {
       const nx = x / len;
       const ny = y / len;
       const nz = z / len;
-      const wave =
-        Math.sin(nx * 7.2 + time * 1.7) *
-        Math.cos(ny * 5.6 - time * 1.2) *
-        Math.sin(nz * 4.8 + time * 0.9);
-      const fracture = state.styleKey === "fracture" ? Math.sign(wave) * 0.08 : 0;
-      const radius = 1 + pulse * amplitude + wave * roughness * 0.22 + fracture + weather * 0.05;
+      // Static-ish roughness noise (air quality) + directional flow (wind).
+      const noise =
+        Math.sin(nx * 7.2 + time * 0.9) *
+        Math.cos(ny * 5.6 - time * 0.6) *
+        Math.sin(nz * 4.8 + time * 0.5);
+      const windWave = Math.sin(nx * 3.1 + ny * 2.3 + flow) * wind;
+      const fracture = state.styleKey === "fracture" ? Math.sign(noise) * 0.08 : 0;
+      const radius =
+        1 + pulse * amplitude + noise * roughness * 0.22 + windWave * 0.12 + fracture;
       pos[i] = x * radius;
-      pos[i + 1] = y * radius * (1 + traffic * 0.05);
+      pos[i + 1] = y * radius;
       pos[i + 2] = z * radius;
       wirePos[i] = pos[i] * 1.012;
       wirePos[i + 1] = pos[i + 1] * 1.012;
       wirePos[i + 2] = pos[i + 2] * 1.012;
 
-      const cIndex = i;
-      vertexColors[cIndex] = clamp(color.r + wave * 0.08 + social * 0.12);
-      vertexColors[cIndex + 1] = clamp(color.g + pulse * 0.08);
-      vertexColors[cIndex + 2] = clamp(color.b + weather * 0.12);
+      vertexColors[i] = clamp((color.r + pulse * 0.05 + airPoor * 0.06) * darken);
+      vertexColors[i + 1] = clamp((color.g + pulse * 0.05) * darken);
+      vertexColors[i + 2] = clamp((color.b + rain * 0.1) * darken);
     }
 
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
     wire.geometry.attributes.position.needsUpdate = true;
     geometry.computeVertexNormals();
+
+    // Material feel: poor air = rougher & more matte; rain = wetter sheen.
+    material.roughness = clamp(0.32 + airPoor * 0.5 - rain * 0.18, 0.05, 0.95);
+    material.metalness = clamp(0.18 + rain * 0.25, 0, 0.7);
+    material.emissiveIntensity = 0.5 * darken;
   }
 
   function updateParticles(time) {
-    // Lower values = worse: invert social/overall so low readings => calmer particles
-    const social = 1 - state.data.social;
-    const overall = 1 - state.data.overall;
-    particles.rotation.y = time * (0.025 + social * 0.08);
+    const social = clamp(state.data.social);
+    const wind = clamp(state.data.wind);
+    const rain = clamp(state.data.rain);
+    // Wind sweeps the particle field; rain thickens it into a haze.
+    particles.rotation.y += 0.0016 + wind * 0.02;
     particles.rotation.x = Math.sin(time * 0.12) * 0.12;
-    particles.material.opacity = 0.24 + social * 0.42 + state.clickPulse * 0.15;
-    particles.material.size = 0.012 + overall * 0.015;
+    particles.material.opacity = 0.18 + social * 0.3 + rain * 0.3 + state.clickPulse * 0.15;
+    particles.material.size = 0.012 + rain * 0.02;
   }
 
   function setupAudio() {
@@ -381,37 +480,66 @@ function init(THREE, veil) {
     oscB.start();
     lfo.start();
 
-    return { context, master, filter, oscA, oscB, lfo };
+    // Rain: looping filtered white noise -> a soft, wet texture.
+    const noiseBuffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseData.length; i += 1) noiseData[i] = Math.random() * 2 - 1;
+    const rainSrc = context.createBufferSource();
+    rainSrc.buffer = noiseBuffer;
+    rainSrc.loop = true;
+    const rainFilter = context.createBiquadFilter();
+    rainFilter.type = "bandpass";
+    rainFilter.frequency.value = 1400;
+    rainFilter.Q.value = 0.5;
+    const rainGain = context.createGain();
+    rainGain.gain.value = 0;
+    rainSrc.connect(rainFilter);
+    rainFilter.connect(rainGain);
+    rainGain.connect(master);
+    rainSrc.start();
+
+    return { context, master, filter, oscA, oscB, lfo, rainGain };
   }
 
   function updateAudio() {
     if (!audio) return;
     const now = audio.context.currentTime;
     const data = state.data;
-    // Lower values = worse: invert each metric so low readings => darker/quieter tone
-    const traffic = 1 - data.traffic;
-    const air = 1 - data.air;
-    const social = 1 - data.social;
-    const overall = 1 - data.overall;
-    const weather = 1 - data.weather;
-    const volume = state.audioOn ? 0.02 + overall * 0.16 * state.audioIntensity : 0;
-    const baseFreq = 120 + weather * 130 + social * 90;
+    const traffic = clamp(data.traffic);
+    const airPoor = 1 - clamp(data.air);
+    const social = clamp(data.social);
+    const rain = clamp(data.rain);
+    const tempNorm = clamp((data.temperature + 5) / 40);
+    const bpm = lerp(7, 20, traffic);
+
+    const volume = state.audioOn ? 0.02 + (0.1 + social * 0.1) * state.audioIntensity : 0;
+    // Warmer temperature raises the drone's pitch base slightly.
+    const baseFreq = 110 + tempNorm * 90 + social * 40;
     audio.master.gain.setTargetAtTime(volume, now, 0.08);
     audio.oscA.frequency.setTargetAtTime(baseFreq, now, 0.08);
-    audio.oscB.frequency.setTargetAtTime(baseFreq * (1.49 + air * 0.08), now, 0.08);
-    audio.filter.frequency.setTargetAtTime(420 + traffic * 1600 + social * 700, now, 0.12);
-    audio.lfo.frequency.setTargetAtTime(0.12 + traffic * 2.8, now, 0.12);
+    // Poor air detunes the second oscillator -> a rough, beating dissonance.
+    audio.oscB.frequency.setTargetAtTime(baseFreq * (1.5 + airPoor * 0.12), now, 0.08);
+    // Traffic opens the filter (brighter, busier); poor air also adds grit.
+    audio.filter.frequency.setTargetAtTime(360 + traffic * 1700 + airPoor * 500, now, 0.12);
+    // Breath LFO follows the actual breathing rate.
+    audio.lfo.frequency.setTargetAtTime(bpm / 60, now, 0.12);
+    // Rain brings a soft noise wash and pulls high frequencies down.
+    if (audio.rainGain) {
+      audio.rainGain.gain.setTargetAtTime(state.audioOn ? rain * 0.14 * state.audioIntensity : 0, now, 0.2);
+    }
   }
 
   function updateMetrics() {
     const data = state.data;
+    // Traffic = congestion (higher = busier). Air = quality (higher = cleaner).
     els.traffic.textContent = formatPct(data.traffic);
     els.air.textContent = formatPct(data.air);
-    els.weather.textContent = formatPct(data.weather);
+    // Weather cell shows the actual temperature; social stays a percentage.
+    els.weather.textContent = `${Math.round(data.temperature)}°`;
     els.social.textContent = formatPct(data.social);
     els.dot.className = `dot ${data.live ? "live" : "fallback"}`;
     els.status.textContent = data.live
-      ? `${data.city} live signal · ${new Date(data.timestamp).toLocaleTimeString()}`
+      ? `${data.city} live · ${Math.round(data.temperature)}°C · ${data.rain > 0.05 ? "rain" : data.cloud > 0.6 ? "cloudy" : "clear"} · ${new Date(data.timestamp).toLocaleTimeString()}`
       : `${data.city} demo signal active`;
   }
 
@@ -428,17 +556,22 @@ function init(THREE, veil) {
       target = {
         ...fallback,
         live: state.targetData.live,
-        traffic: clamp(0.5 + Math.sin(cycle * 1.7) * 0.32),
-        air: clamp(0.48 + Math.sin(cycle * 1.1 + 2) * 0.28),
-        weather: clamp(0.45 + Math.sin(cycle * 0.8 + 4) * 0.35),
+        traffic: clamp(0.5 + Math.sin(cycle * 1.7) * 0.42),
+        air: clamp(0.55 + Math.sin(cycle * 1.1 + 2) * 0.35),
+        wind: clamp(0.4 + Math.sin(cycle * 0.8 + 4) * 0.4),
+        rain: clamp(Math.max(0, Math.sin(cycle * 0.5 + 1)) * 0.7),
+        temperature: 22 + Math.sin(cycle * 0.6) * 12,
         social: clamp(0.5 + Math.sin(cycle * 2.3 + 1) * 0.36)
       };
+      target.weather = clamp(1 - target.wind * 0.3 - target.rain * 0.6);
       target.overall = (target.traffic + target.air + target.weather + target.social) / 4;
     }
 
     const t = clamp(dt * 1.8);
-    for (const key of ["traffic", "air", "weather", "social", "overall"]) {
-      state.data[key] = lerp(state.data[key], target[key], t);
+    for (const key of ["traffic", "air", "weather", "social", "overall", "wind", "rain", "cloud", "humidity", "temperature"]) {
+      if (typeof target[key] === "number") {
+        state.data[key] = lerp(state.data[key] ?? target[key], target[key], t);
+      }
     }
     state.data.city = target.city;
     state.data.timestamp = target.timestamp;
@@ -459,13 +592,25 @@ function init(THREE, veil) {
 
     blendData(state.targetData, dt);
     state.clickPulse = Math.max(0, state.clickPulse - dt * 1.7);
-    const traffic = 1 - state.data.traffic;
+    const traffic = clamp(state.data.traffic);
+    const airPoor = 1 - clamp(state.data.air);
+    const rain = clamp(state.data.rain);
+    const tempNorm = clamp((state.data.temperature + 5) / 40);
     const spin = reducedMotion ? 0.06 : 1;
-    group.rotation.y += dt * (0.18 + traffic * 0.18) * spin;
+    // Busier city -> faster rotation.
+    group.rotation.y += dt * (0.05 + traffic * 0.28) * spin;
     group.rotation.x = Math.sin(time * 0.2) * (reducedMotion ? 0.03 : 0.08);
-    keyLight.intensity = 42 + (1 - state.data.overall) * 42;
-    warmLight.intensity = 12 + (1 - state.data.air) * 35;
-    deformGeometry(time);
+
+    // Lighting: rain/cloud soften and dim the key light; heat warms the fill
+    // light; poor air deadens overall ambience.
+    keyLight.intensity = (46 - rain * 20 - clamp(state.data.cloud) * 10) * (1 - airPoor * 0.3);
+    keyLight.color.setHSL(lerp(0.42, 0.55, rain), 0.5, 0.7); // cooler in rain
+    warmLight.intensity = 14 + tempNorm * 30;
+    warmLight.color.setHSL(lerp(0.6, 0.07, tempNorm), 0.8, 0.6); // hot -> warm
+    ambientLight.intensity = 0.55 - airPoor * 0.2 - rain * 0.08;
+    scene.fog.density = 0.035 + rain * 0.03 + airPoor * 0.03;
+
+    deformGeometry(time, dt);
     updateParticles(time);
     updateAudio();
     updateMetrics();

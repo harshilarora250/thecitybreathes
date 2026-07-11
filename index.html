@@ -121,10 +121,10 @@
         </div>
 
         <div class="metrics" aria-live="polite">
-          <div class="metric"><span>Traffic <em class="sub">(lower = worse)</em></span><strong id="trafficMetric">--</strong></div>
-          <div class="metric"><span>Air <em class="sub">(lower = worse)</em></span><strong id="airMetric">--</strong></div>
-          <div class="metric"><span>Weather <em class="sub">(lower = worse)</em></span><strong id="weatherMetric">--</strong></div>
-          <div class="metric"><span>Social <em class="sub">(lower = worse)</em></span><strong id="socialMetric">--</strong></div>
+          <div class="metric"><span>Traffic <em class="sub">(congestion)</em></span><strong id="trafficMetric">--</strong></div>
+          <div class="metric"><span>Air <em class="sub">(quality)</em></span><strong id="airMetric">--</strong></div>
+          <div class="metric"><span>Temp <em class="sub">(now)</em></span><strong id="weatherMetric">--</strong></div>
+          <div class="metric"><span>Social <em class="sub">(activity)</em></span><strong id="socialMetric">--</strong></div>
         </div>
 
         <div class="status">
@@ -237,11 +237,11 @@
                 <tr><th>Data</th><th>Visual effect</th><th>Sound</th></tr>
               </thead>
               <tbody>
-                <tr><td>Traffic</td><td>Breathing speed, rotation, pulse</td><td>Rhythm, filter cutoff</td></tr>
-                <tr><td>Air quality</td><td>Color stress, surface roughness</td><td>Harmonic content</td></tr>
-                <tr><td>Weather</td><td>Surface waves, lighting</td><td>Pitch base</td></tr>
-                <tr><td>Social</td><td>Particles, shimmer</td><td>Secondary oscillators</td></tr>
-                <tr><td>Overall</td><td>Deformation amplitude, energy</td><td>Volume</td></tr>
+                <tr><td>Traffic</td><td>Breathing rate (7–20 bpm), rotation speed</td><td>Breath LFO, filter cutoff</td></tr>
+                <tr><td>Air quality</td><td>Surface roughness, darkening, red strain, tremor</td><td>Detuned dissonance, grit</td></tr>
+                <tr><td>Wind</td><td>Flowing, travelling surface waves</td><td>Particle sweep</td></tr>
+                <tr><td>Rain</td><td>Softer, cooler light; wetter sheen; haze</td><td>Soft noise wash</td></tr>
+                <tr><td>Temperature</td><td>Warm ↔ cool color and fill light</td><td>Drone pitch base</td></tr>
               </tbody>
             </table>
           </div>
@@ -279,7 +279,7 @@
 
     <footer class="footer glass" role="contentinfo">
       <p>The City Breathes — art that could not exist without technology.</p>
-      <p class="muted">Built with Three.js &amp; the Web Audio API. Data: Open-Meteo, OpenAQ.</p>
+      <p class="muted">Built with Three.js &amp; the Web Audio API. Data: Open-Meteo (weather &amp; air), TomTom (traffic).</p>
       <p class="muted"><a href="./privacy.html">Privacy Policy</a></p>
       <p class="muted turnstile-indicator" id="turnstile-indicator" role="status">Turnstile: checking…</p>
     </footer>

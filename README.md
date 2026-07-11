@@ -75,20 +75,20 @@ text
 
 ## API & Data Sources
 
-- **Weather Data**: [Open-Meteo Forecast API](https://open-meteo.com/)
-- **Air Quality Data**: [OpenAQ API](https://docs.openaq.org/)
-- **Traffic Simulation**: Procedural generation based on time of day.
+- **Weather & Air Quality**: [Open-Meteo](https://open-meteo.com/) — live, keyless, CORS-friendly (temperature, humidity, wind, cloud, precipitation; PM2.5/PM10/NO₂/O₃).
+- **Traffic**: [TomTom Traffic API](https://developer.tomtom.com/) — real congestion, fetched via the server proxy `GET /api/traffic` (`TOMTOM_TRAFFIC_KEY`). Falls back to a time-of-day estimate when the key is absent.
 - **Social Activity**: Procedural generation simulating public activity patterns.
 
 ## Data Mapping
 
-| Data Category | Visual Effect               | Audio Effect              |
-|---------------|-----------------------------|---------------------------|
-| Traffic       | Breathing speed, rotation   | Rhythm, filter cutoff     |
-| Air Quality   | Color stress, roughness     | Harmonic content          |
-| Weather       | Surface waves, lighting     | Pitch base                |
-| Social        | Particle emission           | Secondary oscillators     |
-| Overall       | Deformation amplitude       | Volume                    |
+| Data Category | Visual Effect                                              | Audio Effect                          |
+|---------------|------------------------------------------------------------|---------------------------------------|
+| Traffic       | Breathing rate (7–20 bpm), rotation speed                  | Breath LFO, filter cutoff             |
+| Air Quality   | Surface roughness, darkening, red strain, tremor           | Detuned dissonance, grit              |
+| Wind          | Flowing, travelling surface waves                          | Particle sweep                        |
+| Rain          | Softer, cooler light; wetter sheen; haze                   | Soft noise wash                       |
+| Temperature   | Warm ↔ cool color and fill light                           | Drone pitch base                      |
+| Social        | Particle emission, shimmer                                 | Secondary oscillators                 |
 
 ## Demo Mode
 
@@ -98,7 +98,7 @@ When live APIs are unavailable, the application automatically uses procedurally 
 
 - Three.js r166 – 3D rendering engine
 - Open-Meteo – Weather forecast and air-quality data
-- OpenAQ – Air quality measurements
+- TomTom – Live traffic congestion
 - Web Audio API – Browser-native generative sound
 
 ## AI Declaration

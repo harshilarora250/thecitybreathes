@@ -30,6 +30,29 @@ async function verifyTurnstile(token) {
   return resp.json();
 }
 
+// Fetch live traffic congestion (0..1) for a coordinate from TomTom.
+// congestion = 1 - currentSpeed / freeFlowSpeed, clamped. Requires
+// TOMTOM_TRAFFIC_KEY; returns { ok:false } when unset or on error so the
+// client falls back to its time-of-day estimate.
+async function fetchTrafficCongestion(lat, lon) {
+  const key = process.env.TOMTOM_TRAFFIC_KEY;
+  if (!key) return { ok: false, error: "TOMTOM_TRAFFIC_KEY not configured" };
+  const url =
+    "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json" +
+    `?point=${encodeURIComponent(`${lat},${lon}`)}&unit=KMPH&key=${encodeURIComponent(key)}`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return { ok: false, error: `tomtom ${resp.status}` };
+    const data = await resp.json();
+    const seg = data.flowSegmentData;
+    if (!seg || !seg.freeFlowSpeed) return { ok: false, error: "no segment" };
+    const congestion = Math.max(0, Math.min(1, 1 - seg.currentSpeed / seg.freeFlowSpeed));
+    return { ok: true, traffic: congestion };
+  } catch (err) {
+    return { ok: false, error: "request failed" };
+  }
+}
+
 // Read and parse a JSON request body, capped at `limit` bytes.
 function readJsonBody(req, limit = 1 << 16) {
   return new Promise((resolve) => {
@@ -67,6 +90,20 @@ const server = createServer(async (req, res) => {
         return;
       }
       const result = await verifyTurnstile(payload.token);
+      res.writeHead(200, jsonHeaders);
+      res.end(JSON.stringify(result));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/traffic") {
+      const lat = Number(url.searchParams.get("lat"));
+      const lon = Number(url.searchParams.get("lon"));
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        res.writeHead(400, jsonHeaders);
+        res.end(JSON.stringify({ ok: false, error: "invalid coordinates" }));
+        return;
+      }
+      const result = await fetchTrafficCongestion(lat, lon);
       res.writeHead(200, jsonHeaders);
       res.end(JSON.stringify(result));
       return;
